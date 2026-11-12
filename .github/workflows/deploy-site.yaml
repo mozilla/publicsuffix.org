@@ -29,35 +29,37 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout publicsuffix/publicsuffix.org
-        uses: actions/checkout@v7.0.1
+      - name: Checkout mozilla/publicsuffix.org
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: publicsuffix/publicsuffix.org
+          repository: mozilla/publicsuffix.org
           path: publicsuffix.org
+          persist-credentials: false
 
-      - name: Checkout publicsuffix/list
-        uses: actions/checkout@v7.0.1
+      - name: Checkout mozilla/publicsuffixlist
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: publicsuffix/list
-          path: list
+          repository: mozilla/publicsuffixlist
+          path: publicsuffixlist
+          persist-credentials: false
 
       - name: Add VERSION and COMMIT to public_suffix_list.dat
-        working-directory: list/
+        working-directory: publicsuffixlist/
         run: |-
           awk -v commithash="$(git rev-parse HEAD)" -v date="$(date -u +'%Y-%m-%d_%H-%M-%S_%Z')" 'NR==8{print "// VERSION: "date; print "// COMMIT: "commithash; print ""} { print }' public_suffix_list.dat > newlist.dat && mv newlist.dat public_suffix_list.dat
 
       - name: Authenticate with GCP
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           token_format: access_token
           service_account: deploy-website@${{ secrets.GCP_PROJECT_NAME }}.iam.gserviceaccount.com
           workload_identity_provider: projects/${{ secrets.WIP_PROJECT_ID }}/locations/global/workloadIdentityPools/github-actions/providers/github-actions          
 
       - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v3
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Deploy website
         run: |-
           gsutil -m -h "Cache-Control:public, max-age=86400" rsync -d -r -x '\.git|.*\.dat$' publicsuffix.org/ gs://${{ secrets.BUCKET_NAME }}/
-          gsutil -h "Cache-Control:public, max-age=86400" -h "Content-Type:text/plain; charset=UTF-8" cp list/public_suffix_list.dat gs://${{ secrets.BUCKET_NAME }}/list/public_suffix_list.dat
-          gsutil -h "Cache-Control:public, max-age=86400" -h "Content-Type:text/plain; charset=UTF-8" cp list/public_suffix_list.dat gs://${{ secrets.BUCKET_NAME }}/list/effective_tld_names.dat
+          gsutil -h "Cache-Control:public, max-age=86400" -h "Content-Type:text/plain; charset=UTF-8" cp publicsuffixlist/public_suffix_list.dat gs://${{ secrets.BUCKET_NAME }}/list/public_suffix_list.dat
+          gsutil -h "Cache-Control:public, max-age=86400" -h "Content-Type:text/plain; charset=UTF-8" cp publicsuffixlist/public_suffix_list.dat gs://${{ secrets.BUCKET_NAME }}/list/effective_tld_names.dat
